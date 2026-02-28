@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Review</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        html,body{height:100%}
+        body{
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+            background:#fff;
+            display:flex;align-items:center;justify-content:center;
+            min-height:100vh;min-height:100dvh;
+            cursor:pointer;
+            user-select:none;-webkit-user-select:none;
+            -webkit-tap-highlight-color:transparent;
+        }
+        .tap{
+            text-align:center;
+            color:#b0b0b0;
+            font-size:15px;
+            letter-spacing:0.5px;
+            animation:pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse{
+            0%,100%{opacity:.4}
+            50%{opacity:1}
+        }
+    </style>
+</head>
+<body>
+
+<div class="tap">tap on screen</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const GEMINI_KEY = "REDACTED";
+const GOOGLE_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJdQ2JxaPfmoARery20n9WTWI";
+const CACHE_KEY = "stsr"; // localStorage key
+
+// ============================================================
+// AI REVIEW GENERATOR (Gemini)
+// ============================================================
+async function fetchAIReviews() {
+    const prompt = `You are writing Google reviews for "Serge Tax Service" in Sacramento, CA. Owners: Sergey and Vadim. Services: local tax return preparation, business tax services, tax planning, income tax return preparation and filing, new business tax setup and consulting, tax problem resolution.
+
+Generate 5 completely unique, natural-sounding 5-star Google reviews. Rules:
+- Each review 2-4 sentences
+- Sound like real different people (different writing styles, ages, situations)
+- Mention specific services or experiences naturally
+- Some mention Sergey, some mention Vadim, some mention neither
+- No dashes, no em-dashes, no special characters
+- Casual and genuine tone, not overly formal
+- Vary the length: some short, some longer
+- English only
+
+Return ONLY a valid JSON array of 5 strings, nothing else.`;
+
+    const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 1.3 }
+            })
+        }
+    );
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    // Extract JSON array from response
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+    return JSON.parse(match[0]);
+}
+
+// ============================================================
+// CACHE (localStorage)
+// ============================================================
+function getCached() {
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || []; }
+    catch { return []; }
+}
+
+function setCached(arr) {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(arr));
+}
+
+function popReview() {
+    const cache = getCached();
+    if (cache.length === 0) return null;
+    const review = cache.shift();
+    setCached(cache);
+    return review;
+}
+
+// ============================================================
+// TEMPLATE FALLBACK (in case AI fails)
+// ============================================================
+const B="Serge Tax Service",NAMES=["Sergey","Vadim"],LOC="Sacramento";
+function rn(){return NAMES[Math.random()*NAMES.length|0]}
+function rp(a){return a[Math.random()*a.length|0]}
+const TI=[
+()=>`I've been going to ${B} for a few years now and it's always been a great experience.`,
+()=>`Just finished getting my taxes done at ${B} and I'm really impressed!`,
+()=>`This was my first time using ${B} and I couldn't be happier.`,
+()=>`After trying several tax preparers in ${LOC}, I finally found ${B} and I'm not going anywhere else.`,
+()=>`A friend recommended ${B} to me and I'm so glad they did!`,
+()=>`${rn()} and the team at ${B} are the best at what they do.`,
+()=>`Can't say enough good things about ${B}!`,
+()=>`Best tax preparation service in ${LOC}, hands down.`,
+()=>`${rn()} has been handling my taxes for years and I wouldn't trust anyone else.`,
+()=>`Was nervous about filing this year but ${rn()} made everything easy.`,
+()=>`Needed help with my business taxes and ${B} was exactly what I was looking for.`,
+];
+const TD=[
+()=>`${rn()} took the time to explain every deduction and credit I qualified for.`,
+()=>`The whole process was quick and painless, in and out in under an hour.`,
+()=>`They were very thorough and caught deductions I would have missed on my own.`,
+()=>`${rn()} is incredibly knowledgeable about California tax law.`,
+()=>`The staff was friendly and professional from the moment I walked in.`,
+()=>`They were completely upfront about pricing with no hidden fees.`,
+()=>`They handled both my federal and California state returns quickly.`,
+()=>`I felt like they genuinely cared about getting me the best outcome.`,
+()=>`${rn()} helped me with tax planning for the upcoming year which was a huge bonus.`,
+()=>`Their business tax services have been invaluable for my small company.`,
+()=>`${rn()} found tax credits for my business that my previous accountant missed.`,
+];
+const TO=[
+()=>`Got a bigger refund than I expected!`,
+()=>`Saved me a lot of money compared to my previous preparer.`,
+()=>`They maximized my refund while keeping everything by the book.`,
+()=>`Fair pricing for the quality of service, totally worth it.`,
+()=>`Everything was filed accurately and on time with zero issues.`,
+];
+const TC=[
+()=>`Highly recommend to anyone in the ${LOC} area!`,
+()=>`Will definitely be back next tax season.`,
+()=>`If you need a reliable tax preparer in ${LOC}, look no further!`,
+()=>`Five stars all the way, you won't be disappointed.`,
+()=>`100% recommend!`,
+];
+function fallbackReview(){
+    const i=rp(TI)(),d1=rp(TD)();
+    const d2=Math.random()>.4?rp(TD)():'';
+    const o=Math.random()>.3?rp(TO)():'';
+    const c=rp(TC)();
+    return[i,d1,d2,o,c].filter(Boolean).join(' ');
+}
+
+// ============================================================
+// REFILL CACHE IN BACKGROUND
+// ============================================================
+async function refillCache() {
+    const cache = getCached();
+    if (cache.length >= 3) return; // enough reviews cached
+    try {
+        const fresh = await fetchAIReviews();
+        if (fresh.length > 0) {
+            setCached([...cache, ...fresh]);
+        }
+    } catch(e) {
+        // silently fail, fallback templates will be used
+    }
+}
+
+// ============================================================
+// MAIN
+// ============================================================
+// Start refilling cache immediately on page load
+refillCache();
+
+let done = false;
+document.body.addEventListener('click', async () => {
+    if (done) return;
+    done = true;
+
+    // Get review: AI cached first, fallback to template
+    let review = popReview();
+    if (!review) review = fallbackReview();
+
+    // Copy to clipboard (needs user gesture on iOS)
+    try {
+        await navigator.clipboard.writeText(review);
+    } catch {
+        const t = document.createElement('textarea');
+        t.value = review; t.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(t); t.focus(); t.select();
+        document.execCommand('copy'); document.body.removeChild(t);
+    }
+
+    // Redirect to Google Reviews
+    window.location.href = GOOGLE_REVIEW_URL;
+
+    // Refill cache for next visitor
+    refillCache();
+}, { once: true });
+</script>
+
+</body>
+</html>
